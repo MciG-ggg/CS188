@@ -289,17 +289,84 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        bestAction = None
+        bestValue = float("-inf")
+        for action in gameState.getLegalActions(0):
+            successor = gameState.generateSuccessor(0, action)
 
-def betterEvaluationFunction(currentGameState: GameState):
-    """
-    Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
-    evaluation function (question 5).
+            value = self.expectiMax(successor, self.depth, 1)
+            if value > bestValue:
+                bestValue = value
+                bestAction = action 
+        return bestAction
+    
+    def expectiMax(self, gameState: GameState, depth, agentIndex):
+        if depth == 0 or gameState.isWin() or gameState.isLose():
+            return self.evaluationFunction(gameState)
+        
+        numAgent = gameState.getNumAgents()
 
-    DESCRIPTION: <write something here so we know what you did>
-    """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+        if agentIndex == 0:
+            value = float("-inf")
+            actions = gameState.getLegalActions(agentIndex)
+            for action in actions:
+                successor = gameState.generateSuccessor(0, action)
+                value = max(value, self.expectiMax(successor, depth, 1))
+            return value
+        
+        else:
+            expected_value = 0
+            actions = gameState.getLegalActions(agentIndex)
+            n = len(actions)
+            for action in actions:
+                successor = gameState.generateSuccessor(agentIndex, action)
+                if agentIndex == numAgent - 1:
+                    expected_value += self.expectiMax(successor, depth - 1, 0) / n
+                else:
+                    expected_value += self.expectiMax(successor, depth, agentIndex + 1) / n
+            return expected_value
+
+def betterEvaluationFunction(currentGameState):
+    from util import manhattanDistance
+
+    pos = currentGameState.getPacmanPosition()
+    food = currentGameState.getFood().asList()
+    capsules = currentGameState.getCapsules()
+    ghostStates = currentGameState.getGhostStates()
+    scaredTimes = [ghost.scaredTimer for ghost in ghostStates]
+
+    score = currentGameState.getScore()
+
+    # 食物距离
+    if food:
+        minFoodDist = min(manhattanDistance(pos, f) for f in food)
+        score += 10.0 / (minFoodDist + 1)
+    else:
+        score += 100  # 没有食物了，奖励
+
+    # 胶囊距离
+    if capsules:
+        minCapDist = min(manhattanDistance(pos, c) for c in capsules)
+        score += 5.0 / (minCapDist + 1)
+    score -= 20 * len(capsules)  # 剩余胶囊越少越好
+
+    # 幽灵
+    for i, ghost in enumerate(ghostStates):
+        ghostDist = manhattanDistance(pos, ghost.getPosition())
+        if scaredTimes[i] > 0:
+            # 幽灵害怕，靠近它
+            score += 20.0 / (ghostDist + 1)
+        else:
+            # 幽灵不害怕，远离它
+            if ghostDist < 2:
+                score -= 100  # 太近了，危险
+            else:
+                score -= 2.0 / (ghostDist + 1)
+
+    # 剩余食物数量惩罚
+    score -= 4 * len(food)
+
+    return score
 
 # Abbreviation
 better = betterEvaluationFunction
